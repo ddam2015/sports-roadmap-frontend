@@ -1,0 +1,49 @@
+name: Frontend CI
+
+on:
+  push:
+    branches:
+      - dev
+      - staging
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Lint
+        run: npm run lint
+
+      - name: Build Project
+        run: npm run build
+
+  notify:
+    needs: build
+    runs-on: ubuntu-latest
+    if: always() # Always run the notification job, even if the build fails
+
+    steps:
+      - name: Send notification to Slack
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          STATUS="success"
+          if [ "${{ job.status }}" != "success" ]; then
+            STATUS="failed"
+          fi
+
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text": "Frontend CI build for '${{ github.ref }}' has '${STATUS}'."}' \
+          $SLACK_WEBHOOK_URL
